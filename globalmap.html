@@ -14,6 +14,17 @@
         .country:hover {
             fill: #f00;
         }
+        .tooltip {
+            position: absolute;
+            text-align: center;
+            width: auto;
+            padding: 5px;
+            font: 12px sans-serif;
+            background: lightsteelblue;
+            border: 0px;
+            border-radius: 8px;
+            pointer-events: none;
+        }
     </style>
 </head>
 <body>
@@ -47,8 +58,12 @@
             data = csvData;
             console.log(data);
 
+            // Create a color scale
+            const colorScale = d3.scaleSequential(d3.interpolateBlues)
+                .domain(d3.extent(data, d => d.net_migration));
+
             // Load GeoJSON data for world map
-            d3.json("https://raw.githubusercontent.com/ITITIU20153/DSDC-project/main/Data/global.json")
+            d3.json("https://raw.githubusercontent.com/ITITIU20153/DSDC-project/main/Data/global_final.json")
             .then(function(world) {
                 const map = d3.select("#map");
                 const projection = d3.geoMercator().fitSize([960, 600], world);
@@ -61,12 +76,12 @@
                 .attr("class", "country")
                 .attr("d", path)
                 .attr("fill", function(d) {
-                    // Example: Use net_migration to color countries
+                    // Use net_migration to color countries
                     const countryData = data.find(item => item.iso3c === d.properties.iso_a3);
                     return countryData ? colorScale(countryData.net_migration) : "#ccc";
                 })
                 .on("mouseover", function(event, d) {
-                    // Example: Show country name on hover
+                    // Show country name on hover
                     const countryData = data.find(item => item.iso3c === d.properties.iso_a3);
                     tooltip.style("visibility", "visible")
                     .html(countryData ? countryData.country : "Unknown")
@@ -80,7 +95,6 @@
                 // Tooltip
                 const tooltip = d3.select("body").append("div")
                 .attr("class", "tooltip")
-                .style("position", "absolute")
                 .style("visibility", "hidden");
             });
         });
