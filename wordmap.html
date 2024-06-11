@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>World map</title>
     <script src="https://kit.fontawesome.com/37d6505749.js" crossorigin="anonymous"></script>
-
+    <script src="https://d3js.org/d3.v7.min.js"></script>
 </head>
 
 <style>
@@ -31,10 +31,10 @@
         background-color: rgb(255, 255, 255);
         width: fit-content;
         opacity: 0;
-        border-radius: 5px;
-        border: 3px solid rgb(245, 128, 128);
-        padding: 0px 5px;
-        font-size: 1.5rem;
+        border-radius: 1px;
+        border: 2.5px solid rgb(245, 128, 128);
+        padding: 0px 1px;
+        font-size: 2rem;
 
     }
 
@@ -1624,5 +1624,33 @@
             })
             
         })
+    </script>
+    <script>
+        let data;
+        function rowConverter(row) {
+            return {
+                country: row.country,
+                year: +row.year,
+                population: +row.population,
+                pop_density: +row.pop_density,
+                net_migration: +row.net_migration,
+                migration_perc: +row.migration_perc,
+                iso3c: row.iso3c,
+                iso2c: row.iso2c,
+                region: row.region,
+                adminregion: row.adminregion,
+                incomeLevel: row.incomeLevel,
+                lendingType: row.lendingType,
+                capitalCity: row.capitalCity,
+                longitude: +row.longitude,
+                latitude: +row.latitude
+            };
+        }
+        d3.csv("https://raw.githubusercontent.com/ITITIU20153/DSDC-project/main/Data/migration_population.csv",rowConverter)
+        .then(function(csvData ) {
+            data =csvData;
+            console.log(data);
+        });
+
     </script>
 </body>

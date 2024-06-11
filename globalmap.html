@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>World Map with Migration Data</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        .country {
+            stroke: #fff;
+            stroke-width: 0.5px;
+            fill: #ccc;
+        }
+        .country:hover {
+            fill: #f00;
+        }
+    </style>
+</head>
+<body>
+    <svg id="map" width="960" height="600"></svg>
+    <script>
+        let data;
+
+        function rowConverter(row) {
+            return {
+                country: row.country,
+                year: +row.year,
+                population: +row.population,
+                pop_density: +row.pop_density,
+                net_migration: +row.net_migration,
+                migration_perc: +row.migration_perc,
+                iso3c: row.iso3c,
+                iso2c: row.iso2c,
+                region: row.region,
+                adminregion: row.adminregion,
+                incomeLevel: row.incomeLevel,
+                lendingType: row.lendingType,
+                capitalCity: row.capitalCity,
+                longitude: +row.longitude,
+                latitude: +row.latitude
+            };
+        }
+
+        // Load CSV data
+        d3.csv("https://raw.githubusercontent.com/ITITIU20153/DSDC-project/main/Data/migration_population.csv", rowConverter)
+        .then(function(csvData) {
+            data = csvData;
+            console.log(data);
+
+            // Load GeoJSON data for world map
+            d3.json("https://raw.githubusercontent.com/ITITIU20153/DSDC-project/main/Data/global.json")
+            .then(function(world) {
+                const map = d3.select("#map");
+                const projection = d3.geoMercator().fitSize([960, 600], world);
+                const path = d3.geoPath().projection(projection);
+
+                // Draw map
+                map.selectAll(".country")
+                .data(world.features)
+                .enter().append("path")
+                .attr("class", "country")
+                .attr("d", path)
+                .attr("fill", function(d) {
+                    // Example: Use net_migration to color countries
+                    const countryData = data.find(item => item.iso3c === d.properties.iso_a3);
+                    return countryData ? colorScale(countryData.net_migration) : "#ccc";
+                })
+                .on("mouseover", function(event, d) {
+                    // Example: Show country name on hover
+                    const countryData = data.find(item => item.iso3c === d.properties.iso_a3);
+                    tooltip.style("visibility", "visible")
+                    .html(countryData ? countryData.country : "Unknown")
+                    .style("left", (event.pageX + 10) + "px")
+                    .style("top", (event.pageY - 15) + "px");
+                })
+                .on("mouseout", function() {
+                    tooltip.style("visibility", "hidden");
+                });
+
+                // Tooltip
+                const tooltip = d3.select("body").append("div")
+                .attr("class", "tooltip")
+                .style("position", "absolute")
+                .style("visibility", "hidden");
+            });
+        });
+
+    </script>
+</body>
+</html>
