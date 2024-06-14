@@ -3,16 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>World Map with Migration Data</title>
-    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <title>Global Map with D3.js</title>
+    <script src="https://d3js.org/d3.v6.min.js"></script>
     <style>
-        .country {
+        .province {
             stroke: #fff;
             stroke-width: 0.5px;
-            fill: #ccc;
         }
-        .country:hover {
-            fill: #f00;
+
+        .legend {
+            font-size: 12px;
         }
         .tooltip {
             position: absolute;
@@ -28,9 +28,22 @@
     </style>
 </head>
 <body>
-    <svg id="map" width="960" height="600"></svg>
+    <svg width="960" height="600"></svg>
+
     <script>
-        let data;
+        var width = 960;
+        var height = 600;
+
+        var svg = d3.select("svg")
+                    .attr("width", width)
+                    .attr("height", height);
+
+        var projection = d3.geoMercator()
+                           .center([0, 0]) // Tọa độ trung tâm, ở đây mặc định để [0, 0]
+                           .scale(150)
+                           .translate([width / 2, height / 2]);
+
+        var path = d3.geoPath().projection(projection);
 
         function rowConverter(row) {
             return {
@@ -51,54 +64,73 @@
                 latitude: +row.latitude
             };
         }
+        // Load dữ liệu GeoJSON
+        d3.json("https://raw.githubusercontent.com/ITITIU20153/DSDC-project/main/Data/global_final.json").then(function(data) {
+            // Tạo scale màu
+            var color = d3.scaleQuantize()
+                          .domain([0, 100]) // Domain của dữ liệu màu, ví dụ từ 0 đến 100
+                          .range(d3.schemeBlues[9]); // Màu sắc cho scale
 
-        // Load CSV data
-        d3.csv("https://raw.githubusercontent.com/ITITIU20153/DSDC-project/main/Data/migration_population.csv", rowConverter)
-        .then(function(csvData) {
-            data = csvData;
-            console.log(data);
+            // Dữ liệu mẫu (tạm thời random)
+            var sampleData = {};
+            data.features.forEach(function(d) {
+                sampleData[d.properties.Name] = Math.random() * 100; // Tạo dữ liệu ngẫu nhiên từ 0 đến 100
+            });
 
-            // Create a color scale
-            const colorScale = d3.scaleSequential(d3.interpolateBlues)
-                .domain(d3.extent(data, d => d.net_migration));
-
-            // Load GeoJSON data for world map
-            d3.json("https://raw.githubusercontent.com/ITITIU20153/DSDC-project/main/Data/global_final.json")
-            .then(function(world) {
-                const map = d3.select("#map");
-                const projection = d3.geoMercator().fitSize([960, 600], world);
-                const path = d3.geoPath().projection(projection);
-
-                // Draw map
-                map.selectAll(".country")
-                .data(world.features)
-                .enter().append("path")
-                .attr("class", "country")
-                .attr("d", path)
-                .attr("fill", function(d) {
-                    // Use net_migration to color countries
-                    const countryData = data.find(item => item.iso3c === d.properties.iso_a3);
-                    return countryData ? colorScale(countryData.net_migration) : "#ccc";
-                })
-                .on("mouseover", function(event, d) {
-                    // Show country name on hover
+            // Vẽ các path trên bản đồ từ dữ liệu GeoJSON
+            svg.append("g")
+               .selectAll("path")
+               .data(data.features)
+               .enter().append("path")
+               .attr("class", "province")
+               .attr("d", path)
+               .style("fill", function(d) {
+                   var value = sampleData[d.properties.Name]; // Lấy giá trị dựa vào tên đối tượng
+                   return color(value); // Trả về màu sắc từ scale color
+               })
+               .on("mouseover", function(event, d) {
                     const countryData = data.find(item => item.iso3c === d.properties.iso_a3);
                     tooltip.style("visibility", "visible")
-                    .html(countryData ? countryData.country : "Unknown")
-                    .style("left", (event.pageX + 10) + "px")
-                    .style("top", (event.pageY - 15) + "px");
-                })
-                .on("mouseout", function() {
+                           .html(countryData ? `${countryData.Name}: Population ${countryData.POP_EST}` : "Unknown")
+                           .style("left", (event.pageX + 10) + "px")
+                           .style("top", (event.pageY - 15) + "px");
+               })
+               .on("mouseout", function() {
                     tooltip.style("visibility", "hidden");
-                });
+               });
 
-                // Tooltip
-                const tooltip = d3.select("body").append("div")
-                .attr("class", "tooltip")
-                .style("visibility", "hidden");
-            });
+            // Tooltip
+            const tooltip = d3.select("body").append("div")
+                               .attr("class", "tooltip")
+                               .style("visibility", "hidden");
+
+            // Tạo legend
+            var legend = svg.selectAll(".legend")
+                            .data(color.range().map(function(d) {
+                                d = color.invertExtent(d);
+                                if (d[0] == null) d[0] = color.domain()[0];
+                                if (d[1] == null) d[1] = color.domain()[1];
+                                return d;
+                            }))
+                            .enter().append("g")
+                            .attr("class", "legend")
+                            .attr("transform", function(d, i) { return "translate(0," + i * 20 + ")"; });
+
+            legend.append("rect")
+                  .attr("x", width - 18)
+                  .attr("width", 18)
+                  .attr("height", 18)
+                  .style("fill", function(d) { return color(d[0]); });
+
+            legend.append("text")
+                  .attr("x", width - 24)
+                  .attr("y", 9)
+                  .attr("dy", ".35em")
+                  .style("text-anchor", "end")
+                  .text(function(d) { return Math.round(d[0]) + "-" + Math.round(d[1]); });
+        }).catch(function(error){
+            console.error("Error loading or parsing data:", error);
         });
-
     </script>
 </body>
 </html>
