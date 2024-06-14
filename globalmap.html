@@ -65,7 +65,7 @@
             };
         }
         // Load dữ liệu GeoJSON
-        d3.json("https://raw.githubusercontent.com/ITITIU20153/DSDC-project/main/Data/global_final.json").then(function(data) {
+        d3.json("https://raw.githubusercontent.com/ITITIU20153/DSDC-project/main/Data/global_final.json", rowConverter).then(function(data) {
             // Tạo scale màu
             var color = d3.scaleQuantize()
                           .domain([0, 100]) // Domain của dữ liệu màu, ví dụ từ 0 đến 100
@@ -74,7 +74,7 @@
             // Dữ liệu mẫu (tạm thời random)
             var sampleData = {};
             data.features.forEach(function(d) {
-                sampleData[d.properties.Name] = Math.random() * 100; // Tạo dữ liệu ngẫu nhiên từ 0 đến 100
+                sampleData[d.country] = Math.random() * 100; // Tạo dữ liệu ngẫu nhiên từ 0 đến 100
             });
 
             // Vẽ các path trên bản đồ từ dữ liệu GeoJSON
@@ -85,13 +85,13 @@
                .attr("class", "province")
                .attr("d", path)
                .style("fill", function(d) {
-                   var value = sampleData[d.properties.Name]; // Lấy giá trị dựa vào tên đối tượng
+                   var value = sampleData[d.country]; // Lấy giá trị dựa vào tên đối tượng
                    return color(value); // Trả về màu sắc từ scale color
                })
                .on("mouseover", function(event, d) {
                     const countryData = data.find(item => item.iso3c === d.properties.iso_a3);
                     tooltip.style("visibility", "visible")
-                           .html(countryData ? `${countryData.Name}: Population ${countryData.POP_EST}` : "Unknown")
+                           .html(countryData ? `${countryData.Name}: Population ${countryData.population}` : "Unknown")
                            .style("left", (event.pageX + 10) + "px")
                            .style("top", (event.pageY - 15) + "px");
                })
