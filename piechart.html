@@ -16,6 +16,10 @@
             flex-direction: row;
             gap: 16px;
         }
+
+        .piechart {
+            padding: 8px;
+        }
     </style>
     <script src=" https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js "></script>
     <script>
@@ -43,13 +47,6 @@
                 margin = 48,
                 radius = height / 2 - margin;
 
-            const resizeObserver = new ResizeObserver(entries => {
-                width = entries[0].contentRect.width;
-
-                updateChart();
-            })
-            resizeObserver.observe(document.getElementById('piechart-container'));
-
             const svg = d3.select("#piechart")
                 .append("svg")
                 .attr("width", width)
@@ -65,6 +62,19 @@
             g.append("g")
                 .attr("class", "lines");
 
+            const title = svg.append("text")
+                .attr("x", width / 2)
+                .attr("y", margin / 2)
+                .attr("text-anchor", "middle")
+                .style("font-size", "24px")
+                .style("font-weight", "bold");
+
+            const subtitle = svg.append("text")
+                .attr("x", width / 2)
+                .attr("y", margin / 2 + 24)
+                .attr("text-anchor", "middle")
+                .style("font-size", "16px");
+
             const arc = d3.arc()
                 .outerRadius(radius * 0.8)
                 .innerRadius(radius * 0.4);
@@ -72,6 +82,13 @@
             const outerArc = d3.arc()
                 .innerRadius(radius * 0.9)
                 .outerRadius(radius * 0.9);
+
+            const resizeObserver = new ResizeObserver(entries => {
+                width = entries[0].contentRect.width;
+
+                updateChart();
+            })
+            resizeObserver.observe(document.getElementById('piechart-container'));
 
             function updateChart() {
                 data = d3.rollups(DATA.filter(v => parseInt(v.year) === Number(filter.year)).map(v => ({
@@ -97,6 +114,15 @@
                     });
 
                 const data_ready = pie(data);
+
+                // Title and subtitle
+                title.transition().duration(0)
+                    .attr("x", width / 2)
+                    .text(METRIC_TRANSLATION[filter.metric]);
+
+                subtitle.transition().duration(0)
+                    .attr("x", width / 2)
+                    .text(`Top 10 countries - ${filter.year}`);
 
                 // Slices
                 const slice = g.select(".slices")
@@ -244,7 +270,7 @@
                 <input id="year-input" type="number" step="1" />
             </div>
         </form>
-        <div id="piechart"></div>
+        <div id="piechart" class="piechart"></div>
     </div>
 
     <script>
