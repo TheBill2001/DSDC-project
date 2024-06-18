@@ -9,7 +9,7 @@ import plotly.graph_objects as go
 import numpy as np
 import plotly.express as px
 
-data = pd.read_csv('migration_population.csv')
+data = pd.read_csv('Data/migration_population.csv')
 
 #list of countries
 country_list = data[data['region'] != 'Aggregates']['country'].unique()
