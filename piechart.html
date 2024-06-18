@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>DSDC Project Pie Chart</title>
+    <style>
+        .piechart-container {
+            margin: 0 auto;
+            max-width: 1536px;
+            padding: 8px 0;
+        }
+
+        .piechart-form {
+            display: flex;
+            flex-direction: row;
+            gap: 16px;
+        }
+
+        .piechart {
+            padding: 8px;
+        }
+    </style>
+    <script src=" https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js "></script>
+    <script>
+        async function pipeChart() {
+            const METRIC_TRANSLATION = {
+                'net_migration': 'Net migrants',
+                'migration_perc': 'Net migrants (% of population)',
+                'pop_density': 'Population density (inhabitants per kilometer square)',
+                'population': 'Population'
+            };
+            const METRICS = Object.keys(METRIC_TRANSLATION);
+            const DATA = (await d3.csv('https://raw.githubusercontent.com/ITITIU20153/DSDC-project/main/Data/migration_population.csv'))
+                .filter(d => d.region !== 'Aggregates' && d.country !== 'Latin America & Caribbean' && d.country !== 'Sub-Saharan Africa');
+            const MIN_YEAR = Math.min(...DATA.map(i => i.year));
+            const MAX_YEAR = Math.max(...DATA.map(i => i.year));
+
+            const piechartMetricSelect = document.getElementById('piechart-metric-select');
+            const yearInput = document.getElementById('year-input');
+
+            const filter = { year: Math.floor((MAX_YEAR - MIN_YEAR + 1) / 2) + MIN_YEAR, metric: METRICS[0] }
+
+            // Chart
+            let width = 960;
+            const height = 512,
+                margin = 48,
+                radius = height / 2 - margin;
+
+            const svg = d3.select("#piechart")
+                .append("svg")
+                .attr("width", width)
+                .attr("height", height);
+
+            const g = svg.append("g")
+                .attr("transform", "translate(" + width / 2 + "," + height / 2 + ")");
+
+            g.append("g")
+                .attr("class", "slices");
+            g.append("g")
+                .attr("class", "labels");
+            g.append("g")
+                .attr("class", "lines");
+
+            const title = svg.append("text")
+                .attr("x", width / 2)
+                .attr("y", margin / 2)
+                .attr("text-anchor", "middle")
+                .style("font-size", "24px")
+                .style("font-weight", "bold");
+
+            const subtitle = svg.append("text")
+                .attr("x", width / 2)
+                .attr("y", margin / 2 + 24)
+                .attr("text-anchor", "middle")
+                .style("font-size", "16px");
+
+            const arc = d3.arc()
+                .outerRadius(radius * 0.8)
+                .innerRadius(radius * 0.4);
+
+            const outerArc = d3.arc()
+                .innerRadius(radius * 0.9)
+                .outerRadius(radius * 0.9);
+
+            const resizeObserver = new ResizeObserver(entries => {
+                width = entries[0].contentRect.width;
+
+                updateChart();
+            })
+            resizeObserver.observe(document.getElementById('piechart-container'));
+
+            function updateChart() {
+                data = d3.rollups(DATA.filter(v => parseInt(v.year) === Number(filter.year)).map(v => ({
+                    country: v.country,
+                    value: filter.metric === 'migration_perc' ? Math.round((v[filter.metric] * 100 + Number.EPSILON) * 10) / 10 : v[filter.metric]
+                })), xs => d3.sum(xs, x => x.value), d => d.country)
+                data = data.sort((a, b) => b[1] - a[1])
+                data = data.slice(0, 10)
+
+                svg.attr("width", width)
+                    .attr("height", height);
+
+                g.attr("transform", "translate(" + width / 2 + "," + height / 2 + ")");
+
+                const color = d3.scaleOrdinal(d3.schemeCategory10);
+
+                const pie = d3.pie()
+                    .value(function (d) {
+                        return d[1];
+                    })
+                    .sort(function (a, b) {
+                        return d3.ascending(a[1], b[1]);
+                    });
+
+                const data_ready = pie(data);
+
+                // Title and subtitle
+                title.transition().duration(0)
+                    .attr("x", width / 2)
+                    .text(METRIC_TRANSLATION[filter.metric]);
+
+                subtitle.transition().duration(0)
+                    .attr("x", width / 2)
+                    .text(`Top 10 countries - ${filter.year}`);
+
+                // Slices
+                const slice = g.select(".slices")
+                    .selectAll("path.slice")
+                    .data(data_ready);
+
+                slice.enter()
+                    .insert("path")
+                    .style("fill", function (d) {
+                        return color(d.index);
+                    })
+                    .attr("class", "slice");
+
+                slice
+                    .transition().duration(1000)
+                    .attrTween("d", function (d) {
+                        this._current = this._current || d;
+                        var interpolate = d3.interpolate(this._current, d);
+                        this._current = interpolate(0);
+                        return function (t) {
+                            return arc(interpolate(t));
+                        };
+                    })
+
+                slice.exit()
+                    .remove();
+
+                // Text labels
+                var text = g.select(".labels").selectAll("text")
+                    .data(data_ready);
+
+                text.enter()
+                    .append("text")
+                    .attr("dy", ".35em");
+
+                function midAngle(d) {
+                    return d.startAngle + (d.endAngle - d.startAngle) / 2;
+                }
+
+                text.transition().duration(1000)
+                    .attrTween("transform", function (d) {
+                        this._current = this._current || d;
+                        var interpolate = d3.interpolate(this._current, d);
+                        this._current = interpolate(0);
+                        return function (t) {
+                            var d2 = interpolate(t);
+                            var pos = outerArc.centroid(d2);
+                            pos[0] = radius * (midAngle(d2) < Math.PI ? 1 : -1);
+                            return "translate(" + pos + ")";
+                        };
+                    })
+                    .styleTween("text-anchor", function (d) {
+                        this._current = this._current || d;
+                        var interpolate = d3.interpolate(this._current, d);
+                        this._current = interpolate(0);
+                        return function (t) {
+                            var d2 = interpolate(t);
+                            return midAngle(d2) < Math.PI ? "start" : "end";
+                        };
+                    })
+                    .text(function (d) {
+                        const value = filter.metric === 'migration_perc' || filter.metric === 'pop_density' ? parseFloat(d.data[1]).toFixed(1) : d.data[1];
+                        return `${data[d.index][0]}: ${value}`;
+                    });
+
+                text.exit()
+                    .remove();
+
+                // Lines
+                var polyline = g.select(".lines").selectAll("polyline")
+                    .data(data_ready);
+
+                polyline.enter()
+                    .append("polyline").attr("fill", "none").attr("stroke", "black");
+
+                polyline.transition().duration(1000)
+                    .attrTween("points", function (d) {
+                        this._current = this._current || d;
+                        var interpolate = d3.interpolate(this._current, d);
+                        this._current = interpolate(0);
+                        return function (t) {
+                            var d2 = interpolate(t);
+                            var pos = outerArc.centroid(d2);
+                            pos[0] = radius * 0.95 * (midAngle(d2) < Math.PI ? 1 : -1);
+                            return [arc.centroid(d2), outerArc.centroid(d2), pos];
+                        };
+                    });
+
+                polyline.exit()
+                    .remove();
+            }
+
+            /** @param {{year?: string | number, metric?:string}} */
+            function updateFilter({ year, metric } = {}) {
+                if (year !== undefined) {
+                    filter.year = Number(year);
+                }
+
+                if (metric !== undefined) {
+                    filter.metric = metric;
+                }
+
+                updateChart();
+            }
+
+            function initPieChart() {
+                // Init metric select 
+                piechartMetricSelect.addEventListener('change', () => {
+                    updateFilter({ metric: piechartMetricSelect.value });
+                });
+
+                for (const metric of METRICS) {
+                    const optionElement = document.createElement('option');
+                    optionElement.value = metric;
+                    optionElement.innerText = METRIC_TRANSLATION[metric];
+                    piechartMetricSelect.append(optionElement);
+                }
+
+                // Init year selects
+                yearInput.min = MIN_YEAR;
+                yearInput.max = MAX_YEAR;
+                yearInput.value = filter.year;
+                yearInput.addEventListener('change', () => {
+                    updateFilter({ year: parseInt(yearInput.value) });
+                })
+
+                updateChart();
+            }
+
+            initPieChart();
+        }
+    </script>
+</head>
+
+<body>
+    <div id="piechart-container" class="piechart-container" onkeydown="return event.key != 'Enter';">
+        <form id="piechart-form" class="piechart-form">
+            <div>
+                <label for="piechart-metric-select">Select a metric:</label>
+                <select id="piechart-metric-select"></select>
+            </div>
+
+            <div>
+                <label for="year-input">From:</label>
+                <input id="year-input" type="number" step="1" />
+            </div>
+        </form>
+        <div id="piechart" class="piechart"></div>
+    </div>
+
+    <script>
+        pipeChart();
+    </script>
+</body>
+
+</html>
